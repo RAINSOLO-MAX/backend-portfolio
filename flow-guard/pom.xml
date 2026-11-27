@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.rainsolo</groupId>
+        <artifactId>backend-portfolio</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>flow-guard</artifactId>
+    <packaging>jar</packaging>
+    <name>flow-guard</name>
+    <description>A pure-JDK rate limiting library: fixed window, sliding window, leaky bucket and token bucket limiters with hot-key isolation, rule chains and JDK SPI discovery.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

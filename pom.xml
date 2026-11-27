@@ -10,11 +10,14 @@
     <packaging>pom</packaging>
 
     <name>backend-portfolio</name>
-    <description>Two production-flavoured backend projects: a Netty RPC framework and a hierarchical timing-wheel delay queue.</description>
+    <description>Five hand-written backend infrastructure components: a Netty RPC framework, a hierarchical timing-wheel delay queue, a rate limiter, an idempotency/distributed-lock kit and a sharded cron scheduler.</description>
 
     <modules>
         <module>mini-rpc</module>
         <module>delay-queue</module>
+        <module>flow-guard</module>
+        <module>idempotent-lock</module>
+        <module>distributed-scheduler</module>
     </modules>
 
     <properties>
