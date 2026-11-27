@@ -109,10 +109,10 @@ class IdemLockConfig {
 
 > 这是 `InMemoryStore` 的**单 JVM 进程内**数据；跨进程换成 Redis 实现后数量级完全不同，不要把该数字当作分布式锁的性能结论。
 
-## 简历描述
+## 设计要点与实测结果
 
-- **幂等 / 分布式锁组件 idempotent-lock**（Java 17，纯 JDK + SPI）：幂等执行器用 CAS 抢占保证并发同 key 的 action **只执行一次**，`CompletableFuture` 让并发调用复用同一结果；锁侧实现可重入、lease、watchdog 续期、超时自动释放与严格递增 fencing token，存储层通过 SPI 可替换为 Redis SETNX + Lua。
-- **难点与取舍**：幂等状态机 `PROCESSING → SUCCEEDED / FAILED`，占位租约取 `ttl + waitTimeout` 防止慢执行者还没跑完就被第二个线程重新执行；`store.replace(key, expectedOwner, ...)` 避免 TTL 回收后的旧持有者覆盖新记录。锁**刻意不实现 Redlock**——多节点多数派仍依赖时钟漂移可忽略、网络延迟有界、进程无长停顿这些假设，且不带 fencing token，GC 停顿后旧持有者的写无法被下游识别；改为单存储原子抢占 + 下游 `FencingTokenGuard` 校验严格递增 token。所有 lease 判定只用 `nanoTime`，墙钟回拨不影响；watchdog 间隔取 `lease/3`，一次续期失败后仍有约 2/3 lease 缓冲。
-- **量化结果**：32 线程并发同 key 的 action 执行次数为 **1**；demo 复现 GC 停顿场景（T1 `token=1` 停顿 → T2 `token=2` 写入成功 → T1 旧 token 写入被 **REJECTED**）；16 线程压测幂等 **189 万 ops/s / p99 10.8 us**、锁 acquire/release **323 万 ops/s / p99 8.3 us**。
+- **能力**：幂等执行器用 CAS 抢占保证并发同 key 的 action 只执行一次，`CompletableFuture` 让并发调用复用同一结果；锁侧实现可重入、lease、watchdog 续期、超时自动释放与严格递增 fencing token，存储层通过 SPI 可替换为 Redis `SETNX` + Lua。
+- **取舍**：幂等状态机 `PROCESSING → SUCCEEDED / FAILED`，占位租约取 `ttl + waitTimeout` 防止慢执行者未完成就被第二个线程重新执行；`store.replace(key, expectedOwner, ...)` 避免 TTL 回收后的旧持有者覆盖新记录。锁刻意不实现 Redlock——多节点多数派仍依赖时钟漂移可忽略、网络延迟有界、进程无长停顿等假设，且不带 fencing token，无法识别过期后的旧写；改为单存储原子抢占 + 下游 `FencingTokenGuard` 校验严格递增 token。所有 lease 判定只用 `nanoTime`，墙钟回拨不影响；watchdog 间隔取 `lease/3`，一次续期失败后仍有约 2/3 lease 缓冲。
+- **实测**：32 线程并发同 key 的 action 执行次数为 1；demo 复现 GC 停顿场景（`T1 token=1` 停顿 → `T2 token=2` 写入成功 → `REJECTED stale token=1`）；16 线程压测幂等 189 万 ops/s（p99 10.8 us）、锁 acquire/release 323 万 ops/s（p99 8.3 us）。数据为单 JVM 内存实现，跨进程换 Redis 后数量级不同。
 
-**面试可追问**：fencing token 解决了什么 Redlock 解决不了的问题？watchdog 为什么取 lease/3？PROCESSING 占位租约为什么要比结果 TTL 长？锁过期但线程仍在跑，除了 token 还有什么兜底？
+仓库总览见 [根 README](../README.md)。

@@ -1,6 +1,6 @@
 # mini-rpc
 
-手写的 Netty RPC 框架，零 Spring 依赖。完整说明见 [仓库根 README](../README.md)。
+基于 Netty 的私有协议 RPC 框架，实现自定义二进制协议编解码、服务注册与发现、负载均衡、容错与链路透传，运行时仅依赖 `netty-all`（零 Spring）。
 
 ## 模块结构
 
@@ -29,3 +29,11 @@ mvn -q -pl mini-rpc org.codehaus.mojo:exec-maven-plugin:3.2.0:java \
 - 序列化：在 `META-INF/services/dev.rainsolo.minirpc.serialize.Serializer` 注册自己的实现（Hessian / Protobuf / JSON）。
 - 注册中心：实现 `ServiceRegistry` 换成 ZooKeeper / Nacos。
 - 策略：`RpcConfig.loadBalance("consistentHash")` 切换负载均衡；`requestTimeoutMillis` / `maxAttempts` / `failureThreshold` 均可调。
+
+## 设计要点与实测结果
+
+- **能力**：22 字节定长头的私有二进制协议、编解码与粘包拆包处理、JDK SPI 可插拔序列化、内存 / 文件两种注册中心（心跳续约 + 过期剔除）、轮询 / 加权随机 / 一致性哈希三种负载均衡、长连接池复用、请求级超时、可重试异常分类、按节点粒度的熔断、TraceId 透传与 JDK 动态代理。
+- **取舍**：解码器先做绝对读判断长度，不足时直接 return 且不移动 `readerIndex`，并限制单帧 8 MiB；每节点只维护一条长连接，由 `IdleStateHandler` 驱动心跳、读空闲超时主动断连；只有超时与网络异常才重试，业务异常不重试，每次重试重新做服务发现以天然实现 failover；一致性哈希 160 虚拟节点，扩缩容只重映射约 1/N 的 key。
+- **实测**：16 线程 × 2,000 次 = 32,000 次调用，吞吐 22,289 req/s，P50 / P95 / P99 为 0.69 / 1.30 / 1.58 ms，零失败。
+
+仓库总览见 [根 README](../README.md)。
